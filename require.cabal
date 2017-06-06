@@ -1,0 +1,44 @@
+-- This file has been generated from package.yaml by hpack version 0.17.0.
+--
+-- see: https://github.com/sol/hpack
+
+name:           require
+version:        0.0.1
+synopsis:       A language that handles input with failure probablity.
+category:       Development
+stability:      alpha
+homepage:       https://github.com/Neuromancer42/ministgwasm#readme
+bug-reports:    https://github.com/Neuromancer42/ministgwasm/issues
+maintainer:     Yifan Chen <chenyifan_1997@hotmail.com>
+copyright:      (c) 2017 Yifan Chen (Neuromancer42)
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+cabal-version:  >= 1.10
+
+extra-source-files:
+    LICENSE
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/Neuromancer42/ministgwasm
+
+library
+  hs-source-dirs:
+      src
+  ghc-options: -Wall
+  build-tools:
+      alex, happy
+  default-language: Haskell2010
+
+executable run-require
+  main-is: execute.hs
+  hs-source-dirs:
+      app
+  ghc-options: -Wall
+  build-depends:
+      require
+  build-tools:
+      alex, happy
+  default-language: Haskell2010

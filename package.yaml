@@ -1,0 +1,33 @@
+name: require
+version: 0.0.1
+category: Development
+synopsis: A language that handles input with failure probablity.
+
+stability: alpha
+maintainer: Yifan Chen <chenyifan_1997@hotmail.com>
+copyright: (c) 2017 Yifan Chen (Neuromancer42)
+license: BSD3
+github: Neuromancer42/ministgwasm
+
+extra-source-files:
+  - LICENSE
+  - README.md
+
+build-tools: alex, happy
+
+ghc-options: -Wall
+
+library:
+  source-dirs:
+      - src
+  exposed-modules:
+
+executables:
+  run-require:
+    source-dirs: app
+    main: execute.hs
+    dependencies:
+        - require
+
+dependencies:
+    - base
