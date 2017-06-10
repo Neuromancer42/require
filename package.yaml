@@ -30,4 +30,6 @@ executables:
         - require
 
 dependencies:
-    - base
+    - base >= 4.8
+    - containers
+    - mtl

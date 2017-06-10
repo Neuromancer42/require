@@ -28,8 +28,17 @@ library
   hs-source-dirs:
       src
   ghc-options: -Wall
+  build-depends:
+      base >= 4.8
+    , containers
+    , mtl
   build-tools:
       alex, happy
+  exposed-modules:
+      Language.Require
+      Language.Require.Analysis
+      Language.Require.Syntax
+      Language.Require.TypeCheck
   default-language: Haskell2010
 
 executable run-require
@@ -38,7 +47,10 @@ executable run-require
       app
   ghc-options: -Wall
   build-depends:
-      require
+      base >= 4.8
+    , containers
+    , mtl
+    , require
   build-tools:
       alex, happy
   default-language: Haskell2010
