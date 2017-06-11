@@ -43,7 +43,7 @@ tokens :-
 -- The token type:
 data Token
 	= TokenVar String
-	| TokenInt Integer
+	| TokenInt Int
     | TokenIf
     | TokenThen
     | TokenElse

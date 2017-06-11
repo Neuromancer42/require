@@ -54,6 +54,9 @@ addreq reql n r = (n, r) : reql
 emptycontext :: Context
 emptycontext = []
 
+emptyreqlist :: ReqList
+emptyreqlist = []
+
 ctxlength :: Context -> Int
 ctxlength = length
 
