@@ -32,17 +32,23 @@ library
       base >= 4.8
     , containers
     , mtl
+    , array
   build-tools:
       alex, happy
   exposed-modules:
-      Language.Require
-      Language.Require.Analysis
       Language.Require.Syntax
+      Language.Require.Lexer
+      Language.Require.Parser
       Language.Require.TypeCheck
+      Language.Require.Analysis
+      Language.Require.Eval
+  other-modules:
+      Language.Require
+      Paths_require
   default-language: Haskell2010
 
-executable run-require
-  main-is: execute.hs
+executable require-test
+  main-is: test.hs
   hs-source-dirs:
       app
   ghc-options: -Wall
@@ -50,6 +56,7 @@ executable run-require
       base >= 4.8
     , containers
     , mtl
+    , array
     , require
   build-tools:
       alex, happy

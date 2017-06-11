@@ -1,6 +1,6 @@
 {
-module Lexer
-  ( lex
+module Language.Require.Lexer
+  ( lexer
   , Token(..)
   ) where
 }
@@ -18,24 +18,24 @@ tokens :-
   "--".*			        	    ;
   \n                                ;
   $digit+				            { \s -> TokenInt (read s) }
-  if                                { \s -> TokenIf }
-  then                              { \s -> TokenThen }
-  else                              { \s -> TokenElse }
+  if                                { \_ -> TokenIf }
+  then                              { \_ -> TokenThen }
+  else                              { \_ -> TokenElse }
   $lower [$alpha $digit \_ \']*		{ \s -> TokenVar s }
-  \+                                { \s -> TokenPlus }
-  \-\>                              { \s -> TokenArrow }
-  Int                               { \s -> TokenTyInt }
-  \:                                { \s -> TokenColon }
-  \/                                { \s -> TokenSlash }
-  \\                                { \s -> TokenBackslash }
-  \(                                { \s -> TokenLParen }
-  \)                                { \s -> TokenRParen }
-  \[                                { \s -> TokenLBrack }
-  \]                                { \s -> TokenRBrack }
-  \.                                { \s -> TokenDot }
-  \<                                { \s -> TokenLT }
-  \>                                { \s -> TokenGT }
-  \|                                { \s -> TokenVert }
+  \+                                { \_ -> TokenPlus }
+  \-\>                              { \_ -> TokenArrow }
+  Int                               { \_ -> TokenTyInt }
+  \:                                { \_ -> TokenColon }
+  \/                                { \_ -> TokenSlash }
+  \\                                { \_ -> TokenBackslash }
+  \(                                { \_ -> TokenLParen }
+  \)                                { \_ -> TokenRParen }
+  \[                                { \_ -> TokenLBrack }
+  \]                                { \_ -> TokenRBrack }
+  \.                                { \_ -> TokenDot }
+  \<                                { \_ -> TokenLT }
+  \>                                { \_ -> TokenGT }
+  \|                                { \_ -> TokenVert }
 
 {
 -- Each action has type :: String -> Token
@@ -63,6 +63,6 @@ data Token
     | TokenVert
 	deriving (Eq,Show)
 
-lex :: String -> [Token]
-lex = alexScanTokens
+lexer :: String -> [Token]
+lexer = alexScanTokens
 }

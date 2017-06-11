@@ -21,11 +21,17 @@ library:
   source-dirs:
       - src
   exposed-modules:
+      - Language.Require.Syntax
+      - Language.Require.Lexer
+      - Language.Require.Parser
+      - Language.Require.TypeCheck
+      - Language.Require.Analysis
+      - Language.Require.Eval
 
 executables:
-  run-require:
+  require-test:
     source-dirs: app
-    main: execute.hs
+    main: test.hs
     dependencies:
         - require
 
@@ -33,3 +39,4 @@ dependencies:
     - base >= 4.8
     - containers
     - mtl
+    - array

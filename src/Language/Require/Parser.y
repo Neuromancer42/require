@@ -1,17 +1,16 @@
 {
-module Parser
-  ( myparse
-  , Expr (..)
+module Language.Require.Parser
+  ( parser
   ) where
 
 import Language.Require.Lexer
 import Data.Ratio
 import Language.Require.Syntax
-import Contro.Monad.State.Lazy
+import Control.Monad.State.Lazy
 
 }
 
-%name parser term
+%name parseTerm term
 %tokentype { Token }
 %error { parseError }
 %monad { State (Context, ReqList) }
@@ -29,7 +28,7 @@ import Contro.Monad.State.Lazy
     ')'     { TokenRParen }
     '.'     { TokenDot }
     '<'     { TokenLT }
-    if      { TokenIF }
+    if      { TokenIf }
     then    { TokenThen }
     else    { TokenElse }
     '['     { TokenLBrack }
@@ -86,4 +85,6 @@ rat :: { Rational }
 parseError :: [Token] -> a
 parseError _ = error "Parse error"
 
+parser :: String -> (Term, (Context, ReqList))
+parser = runState parseTerm . lexer
 }
