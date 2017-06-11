@@ -1,0 +1,873 @@
+\documentclass[a4paper]{article}
+%\usepackage{geometry}
+%\geometry{a4paper,scale=0.8}
+\usepackage{mathrsfs}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage{CJK,CJKnumb}
+
+\title{$\alpha$-lang --- A Simply Typed Lambda Calculus with Reliability Assertion and Conservative Requests Optimization under High Reliability Assurance}
+
+\author{Yifan Chen, Haoze Wu, Ruyi Ji}
+
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We design and elaborate $\alpha$-lang, a simply typed lambda calculus armed with a conservative static analysis and an independent optimization algorithm, capable of solving a meaningful problem. Definitions, implementation, algorithm design \& proofs and tests are all implemented. %Moreover, a powerful extensible proves to be feasible (yet implemented).
+\end{abstract}
+
+\section{Introduction}
+\paragraph{}
+The statistic analysis in big data usually requires distributed computing, where master process gathers the parameters computed by slave processes/nodes based on massive data and appropriate algorithms (e.g. stream algorithms). Suppose we program based on these parameters and pursue high reliability assurance and accuracy with high probability, repeated sampling/computation requests need to be invoked and thus might result in overwhelming computation cost.
+\paragraph{}
+However, many randomized algorithms/stream algorithms/filters produce good-enough solutions with high probability, so repeated sampling/computation requests produce statistics such as mode and median, which augments the accuracy exponentially. We believe that we abstract a considerable set of these programs whose semantic can be expressed by a simply typed lambda calculus we design and elaborate there-in-after, armed with a conservative requests optimization, which enables programmers to declare correctness assertions and to enjoy a reasonable and distinguished requests arrangement that satisfies those assertions with high probability.
+\section{Language Definition}
+\subsection{Syntax Rules}
+\begin{flalign*}
+\text{\tt t    ::=}\qquad\qquad\qquad\qquad\quad\quad\quad\ \ \quad\qquad &&\tag{terms}\\
+\langle\text{\tt int}\rangle\qquad\qquad\qquad\quad\quad\qquad\ \ \ &&\tag{int value}\\
+\text{\tt x}\ \qquad\qquad\qquad\qquad\qquad\qquad\ &&\tag{variable}\\
+%\text{\tt v}\ \qquad\qquad\qquad\qquad\qquad\qquad\ &&\tag{value}\\
+\lambda\text{\tt x:T.t}\qquad\qquad\qquad\qquad\quad\ \ \ &&\tag{abstraction}\\
+\text{\tt t t}\ \ \qquad\qquad\qquad\qquad\quad\qquad &&\tag{application}\\
+\text{\tt t }\langle\text{\tt op}\rangle\ \text{\tt t}\qquad\qquad\qquad\qquad\quad\ &&\tag{algebraic operation}\\
+\text{\tt if t }\langle\text{\tt cmp}\rangle\text{ \tt t then t else t}&&\tag{comparasion conditional}\\
+\text{\tt assert}\ \langle\text{\tt prob}\rangle\ \text{\tt t}\qquad\qquad\qquad&&\tag{reliability assertion}\\
+\end{flalign*}
+\begin{flalign*}
+\text{\tt v    ::=}\quad\quad\quad\quad\ \ &&\tag{values}\\
+\langle\text{\tt int}\rangle\ \ &&\tag{int value}\\
+\lambda\text{\tt x:T.t}&&\tag{abstraction value}\\
+\end{flalign*}
+\begin{flalign*}
+\text{\tt T    ::=}\quad\quad\quad\quad\ \ &&\tag{types}\\
+\text{\tt Int}\ \ \ \ \ &&\tag{int type}\\
+\text{\tt T}\rightarrow\text{\tt T}\ \ &&\tag{function type}
+\end{flalign*}
+\begin{flalign*}
+\Gamma\text{   \tt ::=}\quad\quad\quad\quad\ &&\tag{contexts}\\
+\emptyset\quad\quad\ &&\tag{empty context}\\
+\Gamma,\text{\tt x:T}&&\tag{term variable binding}
+\end{flalign*}
+\\
+where
+\begin{align*}
+&\langle\text{\tt int}\rangle\in\mathcal{Z}\\
+&\langle\text{\tt prob}\rangle\in(\frac{1}{2},1)\\
+&\langle\text{\tt op}\rangle\in\{+,-,\times\}\\
+&\langle\text{\tt cmp}\rangle\in\{=,\not=,<,>,\le,\ge\}
+\end{align*}
+\pagebreak
+\subsection{Evaluation Rules}
+\begin{equation}
+	\frac{\text{\tt t}_{1}\longrightarrow\text{\tt t}^{\prime}_{1}}
+	{\text{\tt t}_{1}\ \text{\tt t}_{2}\longrightarrow\text{\tt t}^{\prime}_{1}\ \text{\tt t}_{2}}
+	\tag{\sc E-App1}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt t}_{2}\longrightarrow\text{\tt t}^{\prime}_{2}}
+	{\text{\tt v}_{1}\ \text{\tt t}_{2}\longrightarrow\text{\tt v}_{1}\ \text{\tt t}^{\prime}_{2}}
+	\tag{\sc E-App2}
+\end{equation}
+\begin{equation}
+	(\lambda\text{\tt x:T$_{11}$.t$_{12}$})\text{\tt v}_2\longrightarrow[\text{\tt x}\mapsto\text{\tt v}_2]\text{\tt t}_{12}\tag{\sc E-App-Abs}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt t}_1\longrightarrow\text{\tt t}^{\prime}_1}
+	{\text{\tt t}_1\ \langle\text{\tt op}\rangle\ \text{\tt t}_2 \longrightarrow \text{\tt t}^{\prime}_1\ \langle\text{\tt op}\rangle\ \text{\tt t}_2}
+	\tag{\sc E-Op1}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt t}_2\longrightarrow\text{\tt t}^{\prime}_2}
+	{\text{\tt v}_1\ \langle\text{\tt op}\rangle\ \text{\tt t}_2 \longrightarrow \text{\tt v}_1\ \langle\text{\tt op}\rangle\ \text{\tt t}^{\prime}_2}
+	\tag{\sc E-Op2}
+\end{equation}
+\begin{equation}
+	\langle\text{\tt int}\rangle\ \langle\text{\tt op}\rangle\ \langle\text{\tt int}\rangle \longrightarrow\langle\text{\tt int}\rangle
+	\tag{\sc E-Prim-Op}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt t}_1\longrightarrow\text{\tt t}^{\prime}_1}
+	{\text{\tt if t$_1$ }\langle\text{\tt cmp}\rangle\text{ \tt t$_2$ then t$_3$ else t$_4$}\longrightarrow
+	\text{\tt if t$^\prime_1$ }\langle\text{\tt cmp}\rangle\text{ \tt t$_2$ then t$_3$ else t$_4$}}
+	\tag{\sc E-Cnd1}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt t}_2\longrightarrow\text{\tt t}^{\prime}_2}
+	{\text{\tt if v$_1$ }\langle\text{\tt cmp}\rangle\text{ \tt t$_2$ then t$_3$ else t$_4$}\longrightarrow
+	\text{\tt if v$_1$ }\langle\text{\tt cmp}\rangle\text{ \tt t$^\prime_2$ then t$_3$ else t$_4$}}
+	\tag{\sc E-Cnd2}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt v$_1$ }\langle\text{\tt cmp}\rangle\text{ \tt v$_2$}\text{ is true}}
+	{\text{\tt if v$_1$ }\langle\text{\tt cmp}\rangle\text{ \tt v$_2$ then t$_3$ else t$_4$}\longrightarrow
+	\text{\tt t}_3}
+	\tag{\sc E-Cnd-True}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt v$_1$ }\langle\text{\tt cmp}\rangle\text{ \tt v$_2$}\text{ is false}}
+	{\text{\tt if v$_1$ }\langle\text{\tt cmp}\rangle\text{ \tt v$_2$ then t$_3$ else t$_4$}\longrightarrow
+	\text{\tt t}_4}
+	\tag{\sc E-Cnd-False}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt t}_{}\longrightarrow\text{\tt t}^{\prime}_{}}
+	{\text{\tt assert}\ \langle\text{\tt prob}\rangle\ \text{\tt t}\longrightarrow\text{\tt assert}\ \langle\text{\tt prob}\rangle\ \text{\tt t}^\prime}
+	\tag{\sc E-Ass-Term}
+\end{equation}
+\begin{equation}
+	\text{\tt assert}\ \langle\text{\tt prob}\rangle\ \langle\text{\tt int}\rangle\longrightarrow\langle\text{\tt int}\rangle
+	\tag{\sc E-Ass-Int}
+\end{equation}
+\subsection{Typing Rules}
+\begin{equation}
+	\vdash\langle\text{\tt int}\rangle\text{\tt :Int}
+	\tag{\sc T-Int}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt x:T}\in\Gamma}
+	{\Gamma\vdash\text{\tt x:T}}
+	\tag{\sc T-Var}
+\end{equation}
+\begin{equation}
+	\frac{\Gamma,\text{\tt x:T}_1\vdash\text{\tt t$_2$:T$_2$}}
+	{\Gamma\vdash\lambda\text{\tt x:T$_1$.t$_2$:T$_1\rightarrow$T}_2}
+	\tag{\sc T-Abs}
+\end{equation}
+\begin{equation}
+	\frac{\Gamma\vdash\text{\tt t$_1$:T$_{11}\rightarrow$T$_{12}$}\qquad\Gamma\vdash\text{\tt t$_2$:T}_{11}}
+	{\Gamma\vdash\text{\tt t$_1$ t$_2$:T}_{12}}
+	\tag{\sc T-App}
+\end{equation}
+\begin{equation}
+	\frac{\Gamma\vdash\text{\tt t$_1$:Int}\qquad\Gamma\vdash\text{\tt t$_2$:Int}}
+	{\Gamma\vdash\text{\tt t}_1\ \langle\text{\tt op}\rangle\ \text{\tt t$_2$:Int}}
+	\tag{\sc T-Op}
+\end{equation}
+\begin{equation}
+	\frac{\Gamma\vdash\text{\tt t$_1$:Int}\qquad\Gamma\vdash\text{\tt t$_2$:Int}\qquad
+	\Gamma\vdash\text{\tt t$_3$:T}\qquad\Gamma\vdash\text{\tt t$_4$:T}}
+	{\Gamma\vdash\text{\tt if t$_1$ }\langle\text{\tt cmp}\rangle\text{ \tt t$_2$ then t$_3$ else t$_4$:T}}
+	\tag{\sc T-Cnd}
+\end{equation}
+\begin{equation}
+	\frac{\Gamma\vdash\text{\tt t:T}}
+	{\Gamma\vdash\text{\tt assert}\ \langle\text{\tt prob}\rangle\ \text{\tt t:T}}
+	\tag{\sc T-Ass}
+\end{equation}
+\pagebreak
+\subsection{Notes}
+\paragraph{}
+The $\alpha$-lang we designed is similar to the simply typed lambda calculus we have learned. We just specify the \texttt{if} sentences so that we can avoid dealing with \texttt{Bool} type, and \texttt{assert} sentence is defined, which is equivalent to \texttt{id} function on \texttt{Int} type in semantics.
+\paragraph{}
+In addition, the type of the whole program must be \texttt{Int} and we are not allowed to \texttt{assert} term which is arrow type, because it might result in some troubles in our analysis and algorithm design.
+\paragraph{}
+It is worth noting that the real number of assertions might be more than the literal number of assertions in the program, because we might define functors encoded with \texttt{assert} sentences and these functors might propagate many assertions.
+\section{Analysis of the Problem}
+\subsection{Problem Formalization}
+\paragraph{}
+Intuitively, we would like to minimize the number of all data requests and guarantee that the program probably produces the correct answer that we expect. Formally, given $n$ variable $x_i,i=1,\cdots,n$, with accuracy $\alpha_i$, a program of $\alpha$-lang is applied with them, where $m$ constraints $(S_i,l_i)$ is specified by assertions. Each variable will be sampled for $t_i>0$ times, which is to be calculated such that the sum of them minimizes. $S_i$ is specifically determined by a conservative data-flow analysis there-in-after which we name \emph{Key Variable Analysis}, representing the set constituted by elements which occurs in the computation in terms of this fixed assertion, and $l_i$ is given in the assertion statement by programmer. The goal is to satisfy the probability constraint of every assertion with the minimum number of data requests.
+\paragraph{}
+In conclusion, the input is a program of $\alpha$-lang with free \texttt{Int} variable $x_1,\cdots,x_n$, plus $\alpha_1,\cdots,\alpha_n$ which separately denote the accuracy of each variable. The output is $t_1,\cdots,t_n$ which separately denotes the number of data requests of each variable so that all assertion constraints are satisfied.
+\subsection{Problem Transformation}
+\paragraph{}
+For each assertion, the result is related to some variables and the others do not matter. Hence, for each assertion, intuitively we can perform a may-analysis to compute all variables that might influence the result, which we name \emph{Key Variable Analysis} and elaborate there-in-after.
+\paragraph{}
+Suppose we finish the key analysis and attain $S_i$, then $\alpha_i$, the probability of satisfying this assertion, is $\prod\limits_{k\in S_i}\alpha_k$, which should $\ge l_i$.
+\paragraph{}
+Then we analysis the upper bound as follow.
+\paragraph{}
+Intuitively, repeated sampling of variable $x_k$ produces a mode, whose accuracy improves exponentially, as long as it is strictly greater than $\frac{1}{2}$. More precisely, suppose for a fixed variable $x_k$, we sample for $t_t$ times, then the accuracy $\alpha_k$ is improved to
+\begin{align*}
+	\sum^{t_k}_{i=\lceil\frac{t_k}{2}\rceil}\binom{t_k}{i}{\alpha}^i_k(1-\alpha_k)^{t_k-i} &= 1-\sum^{\lceil\frac{t_k}{2}\rceil-1}_{i=0}\binom{t_k}{i}\alpha^i_k(1-\alpha_k)^{t_k-i}\\
+	&\ge 1-2^{t_k-1}\alpha^{\frac{t_k}{2}}_k(1-\alpha_k)^{\frac{t_k}{2}}\\
+	&= 1-\frac{W^{\frac{t_k}{2}}_k}{2}
+\end{align*}
+where $W_k=4\alpha_k(1-\alpha_k)<1$ is a constant in terms of the variable $x_k$.
+\paragraph{}
+The condition $1-\frac{W^{\frac{t_k}{2}}_k}{2}\ge R_k$ guarantee that the improved accuracy of variable $x_k$ is at least $R_k$, and we rewrite as $t_k\ge 2\log_{W_k}(2-2R_k)$, which means that for any precision $\epsilon>0$, the constraint $t_k\ge 2\log_{W_k}(2\epsilon)$ serves as a upper bound of a valid solution. (With fixed $\alpha_1,\cdots,\alpha_n$, this upper bound is polynomial, NOT pseudo-polynomial.)
+\paragraph{}
+The upper bound convinces us of the existence of not bad solutions. However, this problem seems to be a difficult programming problem, so we just designed a naive greedy algorithm as the programming solver.
+\subsection{Programming Solver}
+\paragraph{}
+For the $i$-th assertion, the constraint $\prod\limits_{k\in S_i}R_k\ge l_i$ is equivalent to $$\sum_{k\in S_i}\ln R_k\ge \ln l_i.$$ At the very beginning each inequality is yet satisfied and we try to increase their left head side. Notice that the condition $$\ln(1-\frac{W^{t_k+1}_k}{2})\ge \ln R_i$$ guarantees the $R_i$ constraint for variable $x_i$, through increasing $t_k$ to $t_k+1$, we increase the left head side of the equality of the $i$-th assertion in which the variable $x_k$ exists, by $$\ln(1-\frac{W^{t_k+1}_k}{2})-\ln(1-\frac{W^{t_k}_k}{2}).$$ In our greedy solver, each time we simply increase $t_k$ by $1$, and the $k$ is determined such that $$N_k(\ln(1-\frac{W^{t_k+1}_k}{2})-\ln(1-\frac{W^{t_k}_k}{2}))$$maximizes, where $N_k$ denotes the number of $x_k$'s occurrence over all $S_i$.
+\section{Key Variable Analysis}
+\subsection{The Simplified Version}
+\paragraph{}
+It might be a bit difficult to directly tackle the problem, so we consider the simplified version first. The simplification simply erases the \texttt{if ... then ... else ...} sentence from the syntactic rule, so that branches temporarily won't bother us.
+\paragraph{}
+The remaining syntax rules are:
+\begin{flalign*}
+\text{\tt t    ::=}\qquad\qquad\qquad\qquad\quad\quad\quad\ \ \quad\qquad &&\tag{terms}\\
+\langle\text{\tt int}\rangle\qquad\qquad\qquad\quad\quad\qquad\ \ \ &&\tag{int value}\\
+\text{\tt x}\ \qquad\qquad\qquad\qquad\qquad\qquad\ &&\tag{variable}\\
+%\text{\tt v}\ \qquad\qquad\qquad\qquad\qquad\qquad\ &&\tag{value}\\
+\lambda\text{\tt x:T.t}\qquad\qquad\qquad\qquad\quad\ \ \ &&\tag{abstraction}\\
+\text{\tt t t}\ \ \qquad\qquad\qquad\qquad\quad\qquad &&\tag{application}\\
+\text{\tt t }\langle\text{\tt op}\rangle\ \text{\tt t}\qquad\qquad\qquad\qquad\quad\ &&\tag{algebraic operation}\\
+\text{\tt assert}\ \langle\text{\tt prob}\rangle\ \text{\tt t}\qquad\qquad\qquad&&\tag{reliability assertion}\\
+\end{flalign*}
+\paragraph{}
+Therefore, although the specified values of each free variable is unknown in the program, we can "pretend to evaluate" the program without those value and perform the \emph{Key Variable Analysis} by the way. The spirit of this analysis is that if we give the algebraic formula of the term we assert all variables constituting this formula serve as a straight-forward may-analysis. We name this special evaluation with \emph{abstract $\alpha$-interpretation}, which deals with \texttt{Set} elements instead of \texttt{Int}. The \texttt{Set} type denotes a set of the free variable $x_1,\cdots,x_n$ of the whole program of $\alpha$-lang.
+\paragraph{}
+According to the syntax rules, evaluation rules and typing rules of $\alpha$-lang, we step by step present and explain the syntax rules, abstract interpretation rules and typing rules of $\alpha$-interpreter.
+\begin{flalign*}
+\text{\tt t    ::=}\qquad\qquad\qquad\qquad\quad\quad\quad\ \ \quad\qquad &&\tag{terms}\\
+\langle\text{\tt set}\rangle\qquad\qquad\qquad\quad\quad\qquad\ \ \ &&\tag{set value}\\
+\text{\tt x}\ \qquad\qquad\qquad\qquad\qquad\qquad\ &&\tag{variable}\\
+%\text{\tt v}\ \qquad\qquad\qquad\qquad\qquad\qquad\ &&\tag{value}\\
+\lambda\text{\tt x:T.t}\qquad\qquad\qquad\qquad\quad\ \ \ &&\tag{abstraction}\\
+\text{\tt t t}\ \ \qquad\qquad\qquad\qquad\quad\qquad &&\tag{application}\\
+\text{\tt t}\cup\text{\tt t}\qquad\qquad\qquad\qquad\qquad\ \ \ &&\tag{set union}\\
+\text{\tt assert}\ \langle\text{\tt prob}\rangle\ \text{\tt t}\qquad\qquad\qquad&&\tag{reliability assertion}\\
+\end{flalign*}
+\begin{flalign*}
+\text{\tt v    ::=}\quad\quad\quad\quad\ \ &&\tag{values}\\
+\langle\text{\tt set}\rangle\ \ &&\tag{set value}\\
+\lambda\text{\tt x:T.t}&&\tag{abstraction value}\\
+\end{flalign*}
+\begin{flalign*}
+\text{\tt T    ::=}\quad\quad\quad\quad\ \ &&\tag{types}\\
+\text{\tt Set}\ \ \ \ \ &&\tag{set type}\\
+\text{\tt T}\rightarrow\text{\tt T}\ \ &&\tag{function type}
+\end{flalign*}
+\begin{flalign*}
+\Gamma\text{   \tt ::=}\quad\quad\quad\quad\ &&\tag{contexts}\\
+\emptyset\quad\quad\ &&\tag{empty context}\\
+\Gamma,\text{\tt x:T}&&\tag{term variable binding}
+\end{flalign*}
+\paragraph{}
+The conversion is straight-forward. We simply replace $\langle\text{\tt op}\rangle$ by $\cup$, $\langle\text{\tt int}\rangle$ by $\emptyset$, and $x_i$ by $\{x_i\}$.
+\paragraph{}
+The typing rules are also straight-forward.
+\begin{equation}
+	\vdash\langle\text{\tt set}\rangle\text{\tt :Set}
+	\tag{\sc T-Set}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt x:T}\in\Gamma}
+	{\Gamma\vdash\text{\tt x:T}}
+	\tag{\sc T-Var}
+\end{equation}
+\begin{equation}
+	\frac{\Gamma,\text{\tt x:T}_1\vdash\text{\tt t$_2$:T$_2$}}
+	{\Gamma\vdash\lambda\text{\tt x:T$_1$.t$_2$:T$_1\rightarrow$T}_2}
+	\tag{\sc T-Abs}
+\end{equation}
+\begin{equation}
+	\frac{\Gamma\vdash\text{\tt t$_1$:T$_{11}\rightarrow$T$_{12}$}\qquad\Gamma\vdash\text{\tt t$_2$:T}_{11}}
+	{\Gamma\vdash\text{\tt t$_1$ t$_2$:T}_{12}}
+	\tag{\sc T-App}
+\end{equation}
+\begin{equation}
+	\frac{\Gamma\vdash\text{\tt t$_1$:Set}\qquad\Gamma\vdash\text{\tt t$_2$:Set}}
+	{\Gamma\vdash\text{\tt t}_1\cup \text{\tt t$_2$:Set}}
+	\tag{\sc T-Union}
+\end{equation}
+\begin{equation}
+	\frac{\Gamma\vdash\text{\tt t:T}}
+	{\Gamma\vdash\text{\tt assert}\ \langle\text{\tt prob}\rangle\ \text{\tt t:T}}
+	\tag{\sc T-Ass}
+\end{equation}
+\paragraph{}
+Abstract interpretation rules:
+\begin{equation}
+	\frac{\text{\tt t}_{1}\longrightarrow\text{\tt t}^{\prime}_{1}}
+	{\text{\tt t}_{1}\ \text{\tt t}_{2}\longrightarrow\text{\tt t}^{\prime}_{1}\ \text{\tt t}_{2}}
+	\tag{\sc I-App1}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt t}_{2}\longrightarrow\text{\tt t}^{\prime}_{2}}
+	{\text{\tt v}_{1}\ \text{\tt t}_{2}\longrightarrow\text{\tt v}_{1}\ \text{\tt t}^{\prime}_{2}}
+	\tag{\sc I-App2}
+\end{equation}
+\begin{equation}
+	(\lambda\text{\tt x:T$_{11}$.t$_{12}$})\text{\tt v}_2\longrightarrow[\text{\tt x}\mapsto\text{\tt v}_2]\text{\tt t}_{12}\tag{\sc I-App-Abs}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt t}_1\longrightarrow\text{\tt t}^{\prime}_1}
+	{\text{\tt t}_1\cup\text{\tt t}_2 \longrightarrow \text{\tt t}^{\prime}_1\cup\text{\tt t}_2}
+	\tag{\sc I-Union1}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt t}_2\longrightarrow\text{\tt t}^{\prime}_2}
+	{\text{\tt v}_1\cup\text{\tt t}_2 \longrightarrow \text{\tt v}_1\cup\text{\tt t}^{\prime}_2}
+	\tag{\sc I-Union2}
+\end{equation}
+\begin{equation}
+	\langle\text{\tt set}\rangle\cup\langle\text{\tt set}\rangle \longrightarrow\langle\text{\tt set}\rangle
+	\tag{\sc I-Prim-Union}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt t}_{}\longrightarrow\text{\tt t}^{\prime}_{}}
+	{\text{\tt assert}\ \langle\text{\tt prob}\rangle\ \text{\tt t}\longrightarrow\text{\tt assert}\ \langle\text{\tt prob}\rangle\ \text{\tt t}^\prime}
+	\tag{\sc I-Ass-Term}
+\end{equation}
+\begin{equation}
+	\text{\tt assert}\ \langle\text{\tt prob}\rangle\ \langle\text{\tt set}\rangle\longrightarrow\langle\text{\tt set}\rangle
+	\tag{\sc I-Ass-Set}
+\end{equation}
+\paragraph{}
+Now consider the last abstract interpretation rule. We can by the way add a piece of constraint to the global assertion constraints set, which will be eventually solved by the programming solver we designed earlier.
+\paragraph{}
+However, from the foregoing we mention that the real number of assertions might be more than the literal number of assertions in the program, because we might define functors encoded with \texttt{assert} sentences and these functors might propagate many assertions. In this case, we are simply confronted with some term like \texttt{t$_1$ t$_2$} and \texttt{t$_2$} contains a lambda abstraction inside which \texttt{assert} sentences exist. By
+\begin{equation}
+	\frac{\text{\tt t}_{2}\longrightarrow\text{\tt t}^{\prime}_{2}}
+	{\text{\tt v}_{1}\ \text{\tt t}_{2}\longrightarrow\text{\tt v}_{1}\ \text{\tt t}^{\prime}_{2}}
+	\tag{\sc I-App2}
+\end{equation}
+and
+\begin{equation}
+	(\lambda\text{\tt x:T$_{11}$.t$_{12}$})\text{\tt v}_2\longrightarrow[\text{\tt x}\mapsto\text{\tt v}_2]\text{\tt t}_{12}\tag{\sc I-App-Abs}
+\end{equation}
+the propagation of \texttt{assert} functors realize. We just follow the abstract interpretation rules and now they suffice.
+
+\subsection{The Complete Version}
+
+\paragraph{}
+Now we try to introduce \texttt{if} sentence and complement an additional syntax rule --- $\text{\tt if t}\ \cup\text{ \tt t then t else t}$.
+\paragraph{}
+$\langle\text{\tt cmp}\rangle$ is replaced by $\cup$, because we don't care about the whether the predicate is true or false. We simply would like to know, (1) what branch this conditional term falls into (which depends on the predicate), and (2) what variables may have something to do with the evaluation result of the predicate and the two branches.
+\paragraph{}
+Hence the additional syntax rule is:
+\begin{flalign*}
+\text{\tt t    ::=}\qquad\qquad\qquad\qquad\quad\quad\quad\ \ \quad\qquad &&\tag{terms}\\
+\text{\tt if t then t else t}\qquad\qquad&&\tag{conditional}\\
+\end{flalign*}
+\paragraph{}
+And the additional typing rule is straight-forward:
+\begin{equation}
+	\frac{\Gamma\vdash\text{\tt t$_1$:Set}\qquad
+	\Gamma\vdash\text{\tt t$_2$:T}\qquad\Gamma\vdash\text{\tt t$_3$:T}}
+	{\Gamma\vdash\text{\tt if t$_1$ then t$_2$ else t$_3$:T}}
+	\tag{\sc T-Cnd}
+\end{equation}
+\paragraph{}
+However, the additional abstract interpretation rules are non-trivial, because we are dealing with branches. We cannot simply choose one branch and drop the other.
+\paragraph{}
+Therefore we treat the term \texttt{if v then v else v} as value:
+\begin{flalign*}
+\text{\tt v    ::=}\qquad\qquad\qquad\qquad\qquad\ \ &&\tag{values}\\
+\text{\tt if v then v else v}&&\tag{conditional value}\\
+\end{flalign*}
+and continue our analysis to see if we are able to figure out some approach to deal with such term.
+\paragraph{}
+Notice that what we actually would like to analyze from the problem is simply the variable set for all assertions, we just need to focus on those essential \texttt{if} sentences.
+\paragraph{}
+For brief, we temporarily omit the $\langle\text{\tt prob}\rangle$ component of \texttt{assert} terms.
+\paragraph{}
+For example, in $$\texttt{if t$_1$ then assert t$_2$ else t$_3$} $$ the assertion has nothing to do with what branch the interpretation falls in and thus \texttt{t$_1$} is meaningless, but in $$\texttt{assert if t$_1$ then t$_2$ else t$_3$} $$ the term \texttt{t$_1$} matters because it determines which branch the interpretation chooses and thereby influences the value of the whole term.
+\paragraph{}
+Our key idea is to simplify or transform our program such that \texttt{if} sentences float to the outer the the others float inward. Obviously we have simplification rules:
+$$
+	\texttt{(if v$_1$ then v$_2$ else v$_3$) v$_4$}\longrightarrow
+$$
+\begin{equation}
+	\texttt{if v$_1$ then (v$_2$ v$_4$) else (v$_3$ v$_4$)}
+	\tag{\sc I-Cnd-App-Simp1}
+\end{equation}
+$$
+	\texttt{v$_1$ (if v$_2$ then v$_3$ else v$_4$)}\longrightarrow
+$$
+\begin{equation}
+	\texttt{if v$_2$ then (v$_1$ v$_3$) else (v$_1$ v$_4$)}
+	\tag{\sc I-Cnd-App-Simp2}
+\end{equation}
+$$
+	\texttt{(if v$_1$ then v$_2$ else v$_3$)$\cup$v$_4$}\longrightarrow
+$$
+\begin{equation}
+	\texttt{if v$_1$ then (v$_2$$\cup$v$_4$) else (v$_3$$\cup$v$_4$)}
+	\tag{\sc I-Cnd-Union-Simp1}
+\end{equation}
+$$
+	\texttt{v$_1$$\cup$(if v$_2$ then v$_3$ else v$_4$)}\longrightarrow
+$$
+\begin{equation}
+	\texttt{if v$_2$ then (v$_1$$\cup$v$_3$) else (v$_1$$\cup$v$_4$)}
+	\tag{\sc I-Cnd-Union-Simp2}
+\end{equation}
+\paragraph{}
+Since we have abstract interpretation rule
+\begin{equation}
+	\frac{\text{\tt t}_{}\longrightarrow\text{\tt t}^{\prime}_{}}
+	{\text{\tt assert}\ \langle\text{\tt prob}\rangle\ \text{\tt t}\longrightarrow\text{\tt assert}\ \langle\text{\tt prob}\rangle\ \text{\tt t}^\prime}
+	\tag{\sc I-Ass-Term}
+\end{equation}
+and
+\begin{equation}
+	\text{\tt assert}\ \langle\text{\tt prob}\rangle\ \langle\text{\tt set}\rangle\longrightarrow\langle\text{\tt set}\rangle
+	\tag{\sc I-Ass-Set}
+\end{equation}
+we simply add three abstract interpretation rules
+\begin{equation}
+	\frac{\text{\tt t}_1\longrightarrow\text{\tt t}^{\prime}_1}
+	{\text{\tt if t$_1$ then t$_2$ else t$_3$}\longrightarrow
+	\text{\tt if t$^\prime_1$ then t$_2$ else t$_3$}}
+	\tag{\sc I-Cnd1}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt t}_2\longrightarrow\text{\tt t}^{\prime}_2}
+	{\text{\tt if v$_1$ then t$_2$ else t$_3$}\longrightarrow
+	\text{\tt if v$_1$ then t$^\prime_2$ else t$_3$}}
+	\tag{\sc I-Cnd2}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt t}_3\longrightarrow\text{\tt t}^{\prime}_3}
+	{\text{\tt if v$_1$ then v$_2$ else t$_3$}\longrightarrow
+	\text{\tt if v$_1$ then v$_2$ else t$^\prime_3$}}
+	\tag{\sc I-Cnd3}
+\end{equation}
+and then the interpreter is able to avoid dealing with \texttt{if} sentence until the interpretation is exhaustive and falls into kind of normal form, such as $$\texttt{assert if v$_1$ then v$_2$ else v$_3$}.$$
+\paragraph{}
+Again, we consider the complete syntax
+\begin{flalign*}
+\text{\tt t    ::=}\qquad\qquad\qquad\qquad\quad\quad\quad\ \ \quad\qquad &&\tag{terms}\\
+\langle\text{\tt set}\rangle\qquad\qquad\qquad\quad\quad\qquad\ \ \ &&\tag{set value}\\
+\text{\tt x}\ \qquad\qquad\qquad\qquad\qquad\qquad\ &&\tag{variable}\\
+%\text{\tt v}\ \qquad\qquad\qquad\qquad\qquad\qquad\ &&\tag{value}\\
+\lambda\text{\tt x:T.t}\qquad\qquad\qquad\qquad\quad\ \ \ &&\tag{abstraction}\\
+\text{\tt t t}\ \ \qquad\qquad\qquad\qquad\quad\qquad &&\tag{application}\\
+\text{\tt t}\cup\text{\tt t}\qquad\qquad\qquad\qquad\qquad\quad&&\tag{set union}\\
+\text{\tt if t then t else t}\qquad\qquad&&\tag{conditional}\\
+\text{\tt assert}\ \langle\text{\tt prob}\rangle\ \text{\tt t}\qquad\qquad\qquad&&\tag{reliability assertion}\\
+\end{flalign*}
+and we conclude that currently all unmanageable cases are listed:
+\begin{equation}
+	\texttt{assert if v$_1$ then v$_2$ else v$_3$}\tag{\sc Ass-Cnd}
+\end{equation}
+\begin{equation}
+	\texttt{assert (v$_1$ (if v$_2$ then v$_3$ else v$_4$))}\tag{\sc Ass-Cnd-App1}
+\end{equation}
+\begin{equation}
+	\texttt{assert ((if v$_1$ then v$_2$ else v$_3$) v$_4$)}\tag{\sc Ass-Cnd-App2}
+\end{equation}
+\begin{equation}
+	\texttt{assert (v$_1$$\cup$(if v$_2$ then v$_3$ else v$_4$))}\tag{\sc Ass-Cnd-Union1}
+\end{equation}
+\begin{equation}
+	\texttt{assert ((if v$_1$ then v$_2$ else v$_3$)$\cup$v$_4$)}\tag{\sc Ass-Cnd-Union2}
+\end{equation}
+\paragraph{}
+We attempt to recognize these patterns and consider the appropriate transformations. It isn't simplification because the semantics has subtle change.
+\paragraph{}
+Firstly we consider
+$$
+	\texttt{assert if v$_1$ then v$_2$ else v$_3$}\longrightarrow
+$$
+\begin{equation}
+	\texttt{if assert v$_1$ then assert v$_2$ else assert v$_3$}
+	\tag{\sc I-Ass-Cnd-Trans}
+\end{equation}
+and the comprehension is that if we guarantee that the term $$\texttt{if v$_1$ then v$_2$ else v$_3$}$$ is correct, we simply provide a kind of weaker condition which guarantees that terms \texttt{v$_2$} and \texttt{v$_3$} are correct anyway and term \texttt{v$_1$} is also correct (so that the correct branch is chosen).
+\paragraph{}
+However, the three assertions that propagate from the original assertion should be treated as a whole, so the sets they eventually separately figure out should be a union and serves as ONE assertion constraint but not three.
+\paragraph{}
+Our solution is to specify each assertion with a unique index number and we modify one syntax rule
+\begin{flalign*}
+\text{\tt t    ::=}\qquad\qquad\qquad\qquad\qquad\qquad\qquad\ \ \ \quad\qquad &&\tag{terms}\\
+\text{\tt assert}\ \langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle\ \text{\tt t}\qquad\qquad\qquad&&\tag{reliability assertion}\\
+\end{flalign*}
+\paragraph{}
+and correct the corresponding abstract interpretation.
+\paragraph{}
+Again, for brief, we omit the $\langle\text{\tt index}\rangle$ component of \texttt{assert} terms, so now the modified \texttt{assert} terms look just the same as before.
+\paragraph{}
+Similarly, we have
+$$
+	\texttt{assert (v$_1$ (if v$_2$ then v$_3$ else v$_4$))}\longrightarrow
+$$
+\begin{equation}
+	\texttt{(if assert v$_2$ then assert (v$_1$ v$_3$) else assert (v$_1$ v$_4$))}
+	\tag{\sc I-Ass-Cnd-App-Trans1}
+\end{equation}
+$$
+	\texttt{assert ((if v$_1$ then v$_2$ else v$_3$) v$_4$)}\longrightarrow
+$$
+\begin{equation}
+	\texttt{(if assert v$_1$ then assert (v$_2$ v$_4$) else assert (v$_3$ v$_4$))}
+	\tag{\sc I-Ass-Cnd-App-Trans2}
+\end{equation}
+$$
+	\texttt{assert (v$_1$$\cup$(if v$_2$ then v$_3$ else v$_4$))}\longrightarrow
+$$
+\begin{equation}
+	\texttt{(if assert v$_2$ then assert (v$_1$$\cup$v$_3$) else assert (v$_1$$\cup$v$_4$))}
+	\tag{\sc I-Ass-Cnd-Union-Trans1}
+\end{equation}
+$$
+	\texttt{assert ((if v$_1$ then v$_2$ else v$_3$)$\cup$v$_4$)}\longrightarrow
+$$
+\begin{equation}
+	\texttt{(if assert v$_1$ then assert (v$_2$$\cup$v$_4$) else assert (v$_3$$\cup$v$_4$))}
+	\tag{\sc I-Ass-Cnd-Union-Trans2}
+\end{equation}
+\paragraph{}
+It must be emphasized that the $\langle\text{\tt index}\rangle$ of the \texttt{assert} term holds along such kind of \textsc{Ass-Cnd} transformation.
+\paragraph{}
+However, from the foregoing we mention that the real number of assertions might be more than the literal number of assertions in the program, because we might define functors encoded with \texttt{assert} sentences and these functors might propagate many assertions. In this case, we are simply confronted with some term like \texttt{t$_1$ t$_2$} and \texttt{t$_2$} contains a lambda abstraction inside which \texttt{assert} sentences exist, so when we perform the application we need to "deep copy" but not simply "substitute" ("shallow copy") the term. The \textsc{I-App-Abs} should be rewrite as
+\begin{equation}
+	(\lambda\text{\tt x:T$_{11}$.t$_{12}$})\text{\tt v}_2\longrightarrow[\text{\tt x}\mapsto\text{\tt copy }\text{\tt v}_2]\text{\tt t}_{12}\tag{\sc I-App-Abs}
+\end{equation}
+where \texttt{copy} function simply replace all indices of the \texttt{assert} sentences such that all assertions propagated have unique index.
+\paragraph{}
+A natural question is whether or not the \texttt{copy} operations conflicts with \textsc{Ass-Cnd} transformations. Actually \texttt{copy} operations (assertion propagations) and \textsc{Ass-Cnd} transformations will not interfere with each other because (1) assertion propagations before \textsc{Ass-Cnd} transformations do not influence the consistency of the \texttt{index} after \textsc{Ass-Cnd} transformations and (2) we do not allow the assertion of terms except \texttt{Int} type and the interpretation rule
+\begin{equation}
+	\frac{\text{\tt t}_{1}\longrightarrow\text{\tt t}^{\prime}_{1}}
+	{\text{\tt t}_{1}\ \text{\tt t}_{2}\longrightarrow\text{\tt t}^{\prime}_{1}\ \text{\tt t}_{2}}
+	\tag{\sc I-App1}
+\end{equation}
+and
+\begin{equation}
+	\frac{\text{\tt t}_{2}\longrightarrow\text{\tt t}^{\prime}_{2}}
+	{\text{\tt v}_{1}\ \text{\tt t}_{2}\longrightarrow\text{\tt v}_{1}\ \text{\tt t}^{\prime}_{2}}
+	\tag{\sc I-App2}
+\end{equation}
+and
+\begin{equation}
+	\frac{\text{\tt t}_{}\longrightarrow\text{\tt t}^{\prime}_{}}
+	{\text{\tt assert}\ \langle\text{\tt prob}\rangle\ \text{\tt t}\longrightarrow\text{\tt assert}\ \langle\text{\tt prob}\rangle\ \text{\tt t}^\prime}
+	\tag{\sc I-Ass-Term}
+\end{equation}
+and
+\begin{equation}
+	\text{\tt assert}\ \langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle\ \langle\text{\tt set}\rangle\longrightarrow\langle\text{\tt set}\rangle
+	\tag{\sc I-Ass-Set}
+\end{equation}
+guarantees that the problematic cases can only be among terms of
+\begin{equation}
+\text{\tt v$_1$ (assert}\ \langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle\ \langle\text{\tt set}\rangle\text{\tt )}
+\tag{\textsc{App-Ass-Set}}
+\end{equation}
+and
+\begin{equation}
+\text{\tt v$_1$ (assert}\ \langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle\ \text{\tt (if v$_2$ then v$_3$ else v$_4$))}
+\tag{\textsc{App-Ass-Cnd}}
+\end{equation}
+and other \textsc{App-Ass-Cnd} cases. In these cases, the assertion propagation won't happen because the next interpretation will be
+\begin{equation}
+\text{\tt v$_1$}\ \langle\text{\tt set}\rangle
+\tag{\textsc{App-Set}}
+\end{equation}
+and
+$$
+\text{\tt v$_1$ } \text{\tt (if assert$\ \langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle\ $v$_2$}
+$$
+\begin{equation}
+\texttt{ then assert$\ \langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ v$_3$ else assert$\ \langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ v$_4$)}
+\tag{\textsc{App-Cnd-Ass}}
+\end{equation}
+and other \textsc{App-Cnd-Ass} cases, followed by
+\begin{equation}
+	(\lambda\text{\tt x:T$_{11}$.t$_{12}$})\ \langle\text{\tt set}\rangle\longrightarrow[\text{\tt x}\mapsto\text{\tt copy }\langle\text{\tt set}\rangle]\text{\tt t}_{12}\tag{\sc I-App-Abs-Set}
+\end{equation}
+and
+$$
+	\texttt{(if v$_1$ then v$_2$ else v$_3$) v$_4$}\longrightarrow
+$$
+\begin{equation}
+	\texttt{if v$_1$ then (v$_2$ v$_4$) else (v$_3$ v$_4$)}
+	\tag{\sc I-Cnd-App-Simp1}
+\end{equation}
+and other \textsc{Cnd-Simp} simplifications.
+\paragraph{}
+Therefore by induction we can prove that \textsc{Ass-Cnd} transformations imply the absence of assertion propagations. Also we can tell it by intuition that assertion propagations exist only in the case of lambda abstractions inside which \texttt{assert} sentences exist, which cannot be the case of \textsc{Ass-Cnd} transformations because \textsc{Ass-Cnd} transformations deal with \texttt{Set} type instead of lambda abstractions.
+\paragraph{}
+The complete abstract $\alpha$-interpreter is finished. The interpretation result is a redundant stuff with \texttt{if} sentences and $\langle$\texttt{set}$\rangle$ values. Since all \texttt{assert} sentences disappear, we can simply drop this stuff.
+\section{Complete Abstract $\alpha$-interpreter}
+\subsection{Abstract $\alpha$-interpreter Syntax Rules}
+\begin{flalign*}
+\text{\tt t    ::=}\qquad\qquad\qquad\qquad\qquad\qquad\qquad\ \ \qquad\qquad &&\tag{terms}\\
+\langle\text{\tt set}\rangle\qquad\qquad\qquad\qquad\qquad\qquad\quad\quad \ \ &&\tag{set value}\\
+\text{\tt x}\ \qquad\qquad\qquad\qquad\qquad\qquad\qquad\quad\quad&&\tag{variable}\\
+\lambda\text{\tt x:T.t}\qquad\qquad\qquad\qquad\qquad\quad\quad\quad\ \ &&\tag{abstraction}\\
+\text{\tt t t}\ \qquad\qquad\qquad\qquad\quad\qquad\quad\quad\qquad &&\tag{application}\\
+\text{\tt t}\cup\text{\tt t}\qquad\qquad\qquad\quad\qquad\qquad\qquad\quad\ \ &&\tag{union operation}\\
+\text{\tt if t then t else t}\qquad\qquad\qquad\quad\ &&\tag{conditional}\\
+\text{\tt assert}\ \langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle\ \text{\tt t}\qquad\qquad\qquad&&\tag{reliability assertion}\\
+\text{\tt copy t}\ \ \quad\qquad\qquad\qquad\quad\quad\quad\quad\qquad &&\tag{deep copy}\\
+\end{flalign*}
+\begin{flalign*}
+\text{\tt v    ::=}\qquad\qquad\qquad\qquad\qquad\quad\ &&\tag{values}\\
+\langle\text{\tt set}\rangle\qquad\qquad\qquad\quad\ &&\tag{set value}\\
+\lambda\text{\tt x:T.t}\qquad\qquad\quad\quad\ &&\tag{abstraction value}\\
+\text{\tt if v then v else v}&&\tag{conditional value}\\
+\end{flalign*}
+\begin{flalign*}
+\text{\tt T    ::=}\quad\quad\quad\quad\ \ &&\tag{types}\\
+\text{\tt Set}\ \ \ \ \ &&\tag{set type}\\
+\text{\tt T}\rightarrow\text{\tt T}\ \ &&\tag{function type}
+\end{flalign*}
+\begin{flalign*}
+\Gamma\text{   \tt ::=}\quad\quad\quad\quad\ &&\tag{contexts}\\
+\emptyset\quad\quad\ &&\tag{empty context}\\
+\Gamma,\text{\tt x:T}&&\tag{term variable binding}
+\end{flalign*}
+\\
+where
+\begin{align*}
+&\langle\text{\tt set}\rangle\subset\{x_1,\cdots,x_n\}\\
+&\langle\text{\tt prob}\rangle\in(\frac{1}{2},1)\\
+&\langle\text{\tt index}\rangle\in\mathcal{N}\\
+\end{align*}
+\pagebreak
+\subsection{Abstract $\alpha$-interpreter Interpretation Rules}
+\begin{equation}
+	\text{\tt copy}\ \langle\text{\tt set}\rangle\longrightarrow\langle\text{\tt set}\rangle
+	\tag{\sc I-Copy-Set}
+\end{equation}
+\begin{equation}
+	\text{\tt copy x}\longrightarrow\text{\tt x}
+	\tag{\sc I-Copy-Var}
+\end{equation}
+\begin{equation}
+	\text{\tt copy }\lambda\text{\tt x:T.t}\longrightarrow\lambda\text{\tt x:T.(copy t)}
+	\tag{\sc I-Copy-Abs}
+\end{equation}
+\begin{equation}
+	\text{\tt copy (t$_1$ t$_2$)}\longrightarrow\text{\tt (copy t$_1$) (copy t$_2$)}
+	\tag{\sc I-Copy-App}
+\end{equation}
+\begin{equation}
+	\text{\tt copy (t$_1\cup$t$_2$)}\longrightarrow\text{\tt (copy t$_1$)$\cup$(copy t$_2$)}
+	\tag{\sc I-Copy-Union}
+\end{equation}
+$$
+	\text{\tt copy (if t$_1$ then t$_2$ else t$_3$)}\longrightarrow
+$$
+\begin{equation}
+	\text{\tt if (copy t$_1$) then (copy t$_2$) else (copy t$_3$)}
+	\tag{\sc I-Copy-Cnd}
+\end{equation}
+\begin{equation}
+	\text{\tt copy (copy t)}\longrightarrow\text{\tt copy t}
+	\tag{\sc I-Copy-Copy}
+\end{equation}
+$$
+	\text{\tt copy (assert}\ \langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle\ \text{\tt t)}\longrightarrow
+$$
+\begin{equation}
+	\text{\tt assert}\ \langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle\ \text{\tt (copy t)}
+	\tag{\sc I-Copy-Ass}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt t}_{1}\longrightarrow\text{\tt t}^{\prime}_{1}}
+	{\text{\tt t}_{1}\ \text{\tt t}_{2}\longrightarrow\text{\tt t}^{\prime}_{1}\ \text{\tt t}_{2}}
+	\tag{\sc I-App1}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt t}_{2}\longrightarrow\text{\tt t}^{\prime}_{2}}
+	{\text{\tt v}_{1}\ \text{\tt t}_{2}\longrightarrow\text{\tt v}_{1}\ \text{\tt t}^{\prime}_{2}}
+	\tag{\sc I-App2}
+\end{equation}
+\begin{equation}
+	(\lambda\text{\tt x:T$_{11}$.t$_{12}$})\text{\tt v}_2\longrightarrow[\text{\tt x}\mapsto\text{\tt copy v}_2]\text{\tt t}_{12}\tag{\sc I-App-Abs}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt t}_1\longrightarrow\text{\tt t}^{\prime}_1}
+	{\text{\tt t}_1\cup\text{\tt t}_2 \longrightarrow \text{\tt t}^{\prime}_1\cup\text{\tt t}_2}
+	\tag{\sc I-Union1}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt t}_2\longrightarrow\text{\tt t}^{\prime}_2}
+	{\text{\tt v}_1\cup\text{\tt t}_2 \longrightarrow \text{\tt v}_1\cup\text{\tt t}^{\prime}_2}
+	\tag{\sc I-Union2}
+\end{equation}
+\begin{equation}
+	\langle\text{\tt set}\rangle\cup\langle\text{\tt set}\rangle \longrightarrow\langle\text{\tt set}\rangle
+	\tag{\sc I-Prim-Union}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt t}_1\longrightarrow\text{\tt t}^{\prime}_1}
+	{\text{\tt if t$_1$ then t$_2$ else t$_3$}\longrightarrow
+	\text{\tt if t$^\prime_1$ then t$_2$ else t$_3$}}
+	\tag{\sc I-Cnd1}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt t}_2\longrightarrow\text{\tt t}^{\prime}_2}
+	{\text{\tt if v$_1$ then t$_2$ else t$_3$}\longrightarrow
+	\text{\tt if v$_1$ then t$^\prime_2$ else t$_3$}}
+	\tag{\sc I-Cnd2}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt t}_3\longrightarrow\text{\tt t}^{\prime}_3}
+	{\text{\tt if v$_1$ then v$_2$ else t$_3$}\longrightarrow
+	\text{\tt if v$_1$ then v$_2$ else t$^\prime_3$}}
+	\tag{\sc I-Cnd3}
+\end{equation}
+$$
+	\texttt{(if v$_1$ then v$_2$ else v$_3$) v$_4$}\longrightarrow
+$$
+\begin{equation}
+	\texttt{if v$_1$ then (v$_2$ v$_4$) else (v$_3$ v$_4$)}
+	\tag{\sc I-Cnd-App-Simp1}
+\end{equation}
+$$
+	\texttt{v$_1$ (if v$_2$ then v$_3$ else v$_4$)}\longrightarrow
+$$
+\begin{equation}
+	\texttt{if v$_2$ then (v$_1$ v$_3$) else (v$_1$ v$_4$)}
+	\tag{\sc I-Cnd-App-Simp2}
+\end{equation}
+$$
+	\texttt{(if v$_1$ then v$_2$ else v$_3$) $\cup$ v$_4$}\longrightarrow
+$$
+\begin{equation}
+	\texttt{if v$_1$ then (v$_2$$\cup$v$_4$) else (v$_3$$\cup$v$_4$)}
+	\tag{\sc I-Cnd-Union-Simp1}
+\end{equation}
+$$
+	\texttt{v$_1$ $\cup$ (if v$_2$ then v$_3$ else v$_4$)}\longrightarrow
+$$
+\begin{equation}
+	\texttt{if v$_2$ then (v$_1$$\cup$v$_3$) else (v$_1$$\cup$v$_4$)}
+	\tag{\sc I-Cnd-Union-Simp2}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt t}_{}\longrightarrow\text{\tt t}^{\prime}_{}}
+	{\text{\tt assert}\ \langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle\ \text{\tt t}\longrightarrow\text{\tt assert}\ \langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle\ \text{\tt t}^\prime}
+	\tag{\sc I-Ass-Term}
+\end{equation}
+\begin{equation}
+	\text{\tt assert}\ \langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle\ \langle\text{\tt set}\rangle\longrightarrow\langle\text{\tt set}\rangle
+	\tag{\sc I-Ass-Set}
+\end{equation}
+\pagebreak
+$$
+	\texttt{assert $\langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ if v$_1$ then v$_2$ else v$_3$}\longrightarrow
+$$
+$$
+	\texttt{if assert $\langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ v$_1$ }
+$$
+$$
+	\texttt{then assert $\langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ v$_2$ }
+$$
+\begin{equation}
+	\texttt{else assert $\langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ v$_3$}
+	\tag{\sc I-Ass-Cnd-Trans}
+\end{equation}
+$$
+	\texttt{assert $\langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ (v$_1$ (if v$_2$ then v$_3$ else v$_4$))}\longrightarrow
+$$
+$$
+	\texttt{(if assert $\langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ v$_2$}
+$$
+$$
+	\texttt{then assert $\langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ (v$_1$ v$_3$) }
+$$
+\begin{equation}
+	\texttt{else assert $\langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ (v$_1$ v$_4$))}
+	\tag{\sc I-Ass-Cnd-App-Trans1}
+\end{equation}
+$$
+	\texttt{assert $\langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ ((if v$_1$ then v$_2$ else v$_3$) v$_4$)}\longrightarrow
+$$
+$$
+	\texttt{(if assert $\langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ v$_1$}
+$$
+$$
+	\texttt{then assert $\langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ (v$_2$ v$_4$) }
+$$
+\begin{equation}
+	\texttt{else assert $\langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ (v$_3$ v$_4$))}
+	\tag{\sc I-Ass-Cnd-App-Trans2}
+\end{equation}
+$$
+	\texttt{assert $\langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ (v$_1$$\cup$(if v$_2$ then v$_3$ else v$_4$))}\longrightarrow
+$$
+$$
+	\texttt{(if assert $\langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ v$_2$}
+$$
+$$
+	\texttt{then assert $\langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ (v$_1$$\cup$v$_3$) }
+$$
+\begin{equation}
+	\texttt{else assert $\langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ (v$_1$$\cup$v$_4$))}
+	\tag{\sc I-Ass-Cnd-Union-Trans1}
+\end{equation}
+$$
+	\texttt{assert $\langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ ((if v$_1$ then v$_2$ else v$_3$)$\cup$v$_4$)}\longrightarrow
+$$
+$$
+	\texttt{(if assert $\langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ v$_1$}
+$$
+$$
+	\texttt{then assert $\langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ (v$_2$$\cup$v$_4$) }
+$$
+\begin{equation}
+	\texttt{else assert $\langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle$ (v$_3$$\cup$v$_4$))}
+	\tag{\sc I-Ass-Cnd-Union-Trans2}
+\end{equation}
+\subsection{Abstract $\alpha$-interpreter Typing Rules}
+\begin{equation}
+	\vdash\langle\text{\tt set}\rangle\text{\tt :Set}
+	\tag{\sc T-Set}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt x:T}\in\Gamma}
+	{\Gamma\vdash\text{\tt x:T}}
+	\tag{\sc T-Var}
+\end{equation}
+\begin{equation}
+	\frac{\Gamma,\text{\tt x:T}_1\vdash\text{\tt t$_2$:T$_2$}}
+	{\Gamma\vdash\lambda\text{\tt x:T$_1$.t$_2$:T$_1\rightarrow$T}_2}
+	\tag{\sc T-Abs}
+\end{equation}
+\begin{equation}
+	\frac{\Gamma\vdash\text{\tt t$_1$:T$_{11}\rightarrow$T$_{12}$}\qquad\Gamma\vdash\text{\tt t$_2$:T}_{11}}
+	{\Gamma\vdash\text{\tt t$_1$ t$_2$:T}_{12}}
+	\tag{\sc T-App}
+\end{equation}
+\begin{equation}
+	\frac{\Gamma\vdash\text{\tt t$_1$:Set}\qquad\Gamma\vdash\text{\tt t$_2$:Set}}
+	{\Gamma\vdash\text{\tt t}_1\cup \text{\tt t$_2$:Set}}
+	\tag{\sc T-Union}
+\end{equation}
+\begin{equation}
+	\frac{\Gamma\vdash\text{\tt t$_1$:Set}\qquad
+	\Gamma\vdash\text{\tt t$_2$:T}\qquad\Gamma\vdash\text{\tt t$_3$:T}}
+	{\Gamma\vdash\text{\tt if t$_1$ then t$_2$ else t$_3$:T}}
+	\tag{\sc T-Cnd}
+\end{equation}
+\begin{equation}
+	\frac{\Gamma\vdash\text{\tt t:T}}
+	{\Gamma\vdash\text{\tt assert}\ \langle\text{\tt index}\rangle\ \langle\text{\tt prob}\rangle\ \text{\tt t:T}}
+	\tag{\sc T-Ass}
+\end{equation}
+\begin{equation}
+	\frac{\text{\tt $\Gamma\vdash$t:T}}
+	{\Gamma\vdash\text{\tt copy t:T}}
+	\tag{\sc T-Copy}
+\end{equation}
+\section{Implementation}
+\paragraph{}
+Armed with Haskell we successfully implement the $\alpha$-lang compiler.
+\paragraph{}
+To put it simple, we let $\langle$\texttt{op}$\rangle\in\{+\}$ and $\langle$\texttt{cmp}$\rangle\in\{<\}$.
+\paragraph{}
+There are also some other (not very large) changes in the implementation. We use a transformation to convert input language to the execution language, where require are given executing iteration numbers and assertion are directly removed.
+\paragraph{}
+Another change is that we use direct require command in the format "[ \textless require-name\textgreater  \textless given-reliablity\textgreater ]" rather than free variable lists, for more convenient usage and possible further extensions.
+\section{Test}
+\paragraph{}
+There are some test examples in the "examples" directory. Just use "require-test \textless file-name\textgreater" to see the result.
+\section{Conclusion}
+In conclusion, we have defined a language that can automatically handle the unstability of data source. This analysis can provide a example of method for constructing a highly reliable software in an environment full of unstable data source, which is quite similar to our real life.
+\paragraph{}
+\section{Division of Labour}
+\paragraph{}
+The Haskell Implementation is implemented by Yifan Chen. Haoze Wu and Ruyi Ji finish the language design, the algorithm design \& analysis, the report, the slides and the test of the compiler implementation.
+\paragraph{}
+The \emph{Key Variable Analysis} consumes a lot of time of design, analysis and discussion, and should be credited to all of us.
+
+
+
+\end{document}
+
