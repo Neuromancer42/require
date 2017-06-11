@@ -21,6 +21,6 @@ main = do
         else let t' = analyzeTerm reql t
              in do t'' <- eval t'
                    case t'' of
-                     tt -> putStrLn $ "Result: " ++ show tt
-                     _ -> hPutStrLn stderr "Runtime Error"
+                     TmInt tt -> putStrLn $ "Result: " ++ show tt
+                     _ -> hPutStrLn stderr "Runtime Error: the reduction is incorrect."
     _ -> hPutStrLn stderr "Usage: testRequire <fileName>" >> exitFailure

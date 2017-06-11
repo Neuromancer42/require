@@ -1,9 +1,9 @@
 module Language.Require.Syntax where
 
--- * Definitions for abstract syntax
 import Data.Ratio ()
 import Data.Set as S
 
+-- * Definitions for abstract syntax
 -- ** Data typs fot syntax
 -- | terms are either literal numbers or arrows,
 -- based on simply typed lambda calculus
