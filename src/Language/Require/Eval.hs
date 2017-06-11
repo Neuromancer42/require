@@ -4,9 +4,14 @@ import Control.Arrow ((&&&))
 import Data.List (group, sort)
 import Language.Require.Syntax
 
+isval :: Term -> Bool
+isval TmInt{} = True
+isval TmAbs{} = True
+isval _ = False
+
 -- | one small step evaluation
 eval1 :: Term -> IO (Maybe Term)
-eval1 (TmApp (TmAbs _ _ t12) v2@(TmInt _)) = return $ Just $ termSubstTop v2 t12
+eval1 (TmApp (TmAbs _ _ t12) v2) | isval v2 = return $ Just $ termSubstTop v2 t12
 eval1 (TmApp v1@TmAbs {} t2) = do
   t2' <- eval1 t2
   case t2' of

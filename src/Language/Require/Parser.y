@@ -42,12 +42,12 @@ import Control.Monad.State.Lazy
 
 term :: { M Term }
     : appterm                   { $1 }
-    | lam var ':' type '.' term { (\t12 ->
+    | lam var ':' type '.' term { (
                                     state $ \(ctx, reql) ->
-                                    ( TmAbs $2 $4 t12
+                                    ( \t12 -> TmAbs $2 $4 t12
                                     , (addname ctx $2, reql)
                                     )
-                                  ) =<< $6
+                                  ) <*> $6
                                 }
     | if term '<' term then term else term
                                 { do {
