@@ -1,4 +1,4 @@
-module Language.Require.TypeCheck where
+module Language.Require.TypeCheck (typeof) where
 
 import Data.Ratio
 import Language.Require.Syntax
